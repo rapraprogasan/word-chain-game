@@ -1,73 +1,125 @@
-// Game client for Word Chain Challenge
+// Enhanced client for both Word Chain and Emoji Match games
 document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
     const connectionSection = document.getElementById('connection-section');
-    const gameSection = document.getElementById('game-section');
+    const wordchainSection = document.getElementById('wordchain-section');
+    const emojimatchSection = document.getElementById('emojimatch-section');
+    const chatSection = document.getElementById('chat-section');
+    
+    // Connection elements
     const usernameInput = document.getElementById('username');
     const roomCodeInput = document.getElementById('room-code');
     const joinRoomBtn = document.getElementById('join-room');
     const createRoomBtn = document.getElementById('create-room');
-    const leaveRoomBtn = document.getElementById('leave-room');
     const statusElement = document.getElementById('status');
-    const currentRoomElement = document.getElementById('current-room');
-    const playerCountElement = document.getElementById('player-count');
-    const playersListElement = document.getElementById('players-list');
+    
+    // Game selection
+    const gameOptions = document.querySelectorAll('.game-option');
+    const selectedGame = { type: 'word-chain' }; // Default game
+    
+    // Word Chain elements
+    const leaveWordchainBtn = document.getElementById('leave-wordchain');
+    const switchToEmojiBtn = document.getElementById('switch-to-emoji');
+    const wordchainRoomElement = document.getElementById('wordchain-room');
+    const wordchainPlayerCountElement = document.getElementById('wordchain-player-count');
+    const wordchainPlayersListElement = document.getElementById('wordchain-players-list');
     const wordChainElement = document.getElementById('word-chain');
-    const currentPlayerElement = document.getElementById('current-player');
-    const timerElement = document.getElementById('timer');
-    const playerScoreElement = document.getElementById('player-score');
+    const wordchainCurrentPlayerElement = document.getElementById('wordchain-current-player');
+    const wordchainTimerElement = document.getElementById('wordchain-timer');
+    const wordchainPlayerScoreElement = document.getElementById('wordchain-player-score');
     const wordInput = document.getElementById('word-input');
     const submitWordBtn = document.getElementById('submit-word');
     const lastLetterElement = document.getElementById('last-letter');
+    
+    // Emoji Match elements
+    const leaveEmojimatchBtn = document.getElementById('leave-emojimatch');
+    const switchToWordchainBtn = document.getElementById('switch-to-wordchain');
+    const emojimatchRoomElement = document.getElementById('emojimatch-room');
+    const emojimatchPlayerCountElement = document.getElementById('emojimatch-player-count');
+    const emojimatchPlayersListElement = document.getElementById('emojimatch-players-list');
+    const emojiPuzzleElement = document.getElementById('emoji-puzzle');
+    const emojimatchCurrentPlayerElement = document.getElementById('emojimatch-current-player');
+    const emojimatchTimerElement = document.getElementById('emojimatch-timer');
+    const emojiRoundElement = document.getElementById('emoji-round');
+    const emojimatchPlayerScoreElement = document.getElementById('emojimatch-player-score');
+    const emojiGuessInput = document.getElementById('emoji-guess');
+    const submitGuessBtn = document.getElementById('submit-guess');
+    const emojiCategoryElement = document.getElementById('emoji-category');
+    const emojiGuessesElement = document.getElementById('emoji-guesses');
+    
+    // Chat elements (shared)
     const chatMessagesElement = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const sendChatBtn = document.getElementById('send-chat');
-    const gameLinkElement = document.getElementById('game-link');
-    const mobileNotification = document.getElementById('mobile-notification');
-
+    
+    // Modal elements
+    const startGameModal = document.getElementById('start-game-modal');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const waitPlayersBtn = document.getElementById('wait-players-btn');
+    
     // Game state
     let socket = null;
     let playerId = null;
     let currentRoom = null;
-    let isMyTurn = false;
+    let currentGame = null;
+    let isHost = false;
     let timerInterval = null;
-    let timeLeft = 30;
+    
+    // Word Chain specific state
+    let wordchainTimeLeft = 30;
     let usedWords = new Set();
+    let isMyTurnWordchain = false;
     
-    // Check if mobile device
-    function isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
+    // Emoji Match specific state
+    let emojimatchTimeLeft = 60;
+    let isMyTurnEmoji = false;
+    let currentEmojiPuzzle = null;
     
-    // Show mobile notification if on mobile
-    if (isMobileDevice()) {
-        setTimeout(() => {
-            mobileNotification.classList.remove('hidden');
-            setTimeout(() => {
-                mobileNotification.classList.add('hidden');
-            }, 5000);
-        }, 3000);
-    }
-
     // Initialize game
     function init() {
         // Update game link
+        const gameLinkElement = document.getElementById('game-link');
         gameLinkElement.textContent = window.location.href;
+        
+        // Game selection
+        gameOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                gameOptions.forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                selectedGame.type = this.dataset.game;
+            });
+        });
         
         // Event listeners
         joinRoomBtn.addEventListener('click', joinRoom);
         createRoomBtn.addEventListener('click', createRoom);
-        leaveRoomBtn.addEventListener('click', leaveRoom);
-        submitWordBtn.addEventListener('click', submitWord);
-        sendChatBtn.addEventListener('click', sendChatMessage);
+        leaveWordchainBtn.addEventListener('click', leaveRoom);
+        leaveEmojimatchBtn.addEventListener('click', leaveRoom);
+        switchToEmojiBtn.addEventListener('click', () => switchGame('emoji-match'));
+        switchToWordchainBtn.addEventListener('click', () => switchGame('word-chain'));
         
-        // Enter key handlers
+        // Word Chain events
+        submitWordBtn.addEventListener('click', submitWord);
         wordInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') submitWord();
         });
         
+        // Emoji Match events
+        submitGuessBtn.addEventListener('click', submitGuess);
+        emojiGuessInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') submitGuess();
+        });
+        
+        // Chat events
+        sendChatBtn.addEventListener('click', sendChatMessage);
         chatInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendChatMessage();
+        });
+        
+        // Modal events
+        startGameBtn.addEventListener('click', startGame);
+        waitPlayersBtn.addEventListener('click', () => {
+            startGameModal.classList.add('hidden');
         });
         
         // Initialize with a random room code if empty
@@ -97,8 +149,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Connect to server
     function connectToServer() {
-        // For local development, connect to local server
-        // For deployment, this will connect to Render URL automatically
         const serverUrl = window.location.origin;
         socket = io(serverUrl);
         
@@ -128,28 +178,63 @@ document.addEventListener('DOMContentLoaded', function() {
             handlePlayerLeft(data);
         });
         
-        socket.on('game-state', (data) => {
-            updateGameState(data);
+        // Word Chain events
+        socket.on('wordchain-game-state', (data) => {
+            updateWordChainGameState(data);
         });
         
-        socket.on('turn-update', (data) => {
-            handleTurnUpdate(data);
+        socket.on('wordchain-turn-update', (data) => {
+            handleWordChainTurnUpdate(data);
         });
         
-        socket.on('word-submitted', (data) => {
+        socket.on('wordchain-word-submitted', (data) => {
             handleWordSubmitted(data);
         });
         
-        socket.on('timer-update', (data) => {
-            updateTimer(data);
+        socket.on('wordchain-timer-update', (data) => {
+            updateWordChainTimer(data);
         });
         
+        // Emoji Match events
+        socket.on('emojimatch-game-state', (data) => {
+            updateEmojiMatchGameState(data);
+        });
+        
+        socket.on('emojimatch-turn-update', (data) => {
+            handleEmojiMatchTurnUpdate(data);
+        });
+        
+        socket.on('emojimatch-puzzle-update', (data) => {
+            updateEmojiPuzzle(data);
+        });
+        
+        socket.on('emojimatch-guess-submitted', (data) => {
+            handleGuessSubmitted(data);
+        });
+        
+        socket.on('emojimatch-timer-update', (data) => {
+            updateEmojiMatchTimer(data);
+        });
+        
+        socket.on('emojimatch-round-update', (data) => {
+            updateEmojiRound(data);
+        });
+        
+        // Shared events
         socket.on('chat-message', (data) => {
-            addChatMessage(data.sender, data.message, data.isSystem);
+            addChatMessage(data.sender, data.message, data.isSystem, data.type);
         });
         
         socket.on('game-over', (data) => {
             handleGameOver(data);
+        });
+        
+        socket.on('host-status', (data) => {
+            isHost = data.isHost;
+            if (isHost && data.players.length >= 2) {
+                // Show start game modal if host and at least 2 players
+                startGameModal.classList.remove('hidden');
+            }
         });
     }
     
@@ -157,6 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function joinRoom() {
         const username = usernameInput.value.trim();
         const roomCode = roomCodeInput.value.trim().toUpperCase();
+        const gameType = selectedGame.type;
         
         if (!username) {
             alert('Please enter your name');
@@ -171,12 +257,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!socket || !socket.connected) {
             connectToServer();
             
-            // Wait a moment for connection to establish
             setTimeout(() => {
-                socket.emit('join-room', { username, roomCode });
+                socket.emit('join-room', { username, roomCode, gameType });
             }, 500);
         } else {
-            socket.emit('join-room', { username, roomCode });
+            socket.emit('join-room', { username, roomCode, gameType });
         }
     }
     
@@ -184,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function createRoom() {
         const username = usernameInput.value.trim();
         const roomCode = generateRoomCode();
+        const gameType = selectedGame.type;
         
         if (!username) {
             alert('Please enter your name');
@@ -195,13 +281,28 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!socket || !socket.connected) {
             connectToServer();
             
-            // Wait a moment for connection to establish
             setTimeout(() => {
-                socket.emit('join-room', { username, roomCode });
+                socket.emit('join-room', { username, roomCode, gameType });
             }, 500);
         } else {
-            socket.emit('join-room', { username, roomCode });
+            socket.emit('join-room', { username, roomCode, gameType });
         }
+    }
+    
+    // Switch between games
+    function switchGame(gameType) {
+        if (!socket || !socket.connected || !currentRoom) {
+            alert('You must be in a room to switch games');
+            return;
+        }
+        
+        socket.emit('switch-game', { gameType });
+        selectedGame.type = gameType;
+        
+        // Update UI to show selected game
+        gameOptions.forEach(opt => {
+            opt.classList.toggle('active', opt.dataset.game === gameType);
+        });
     }
     
     // Leave room
@@ -213,9 +314,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Submit a word
+    // Start game (host only)
+    function startGame() {
+        if (socket && socket.connected && isHost) {
+            socket.emit('start-game', { gameType: currentGame });
+            startGameModal.classList.add('hidden');
+        }
+    }
+    
+    // Submit a word (Word Chain)
     function submitWord() {
-        if (!isMyTurn) {
+        if (!isMyTurnWordchain) {
             addChatMessage('System', "It's not your turn!", true);
             return;
         }
@@ -241,6 +350,24 @@ document.addEventListener('DOMContentLoaded', function() {
         wordInput.value = '';
     }
     
+    // Submit a guess (Emoji Match)
+    function submitGuess() {
+        if (!isMyTurnEmoji) {
+            addChatMessage('System', "It's not your turn!", true);
+            return;
+        }
+        
+        const guess = emojiGuessInput.value.trim();
+        
+        if (!guess) {
+            addChatMessage('System', "Please enter your guess", true);
+            return;
+        }
+        
+        socket.emit('submit-guess', { guess });
+        emojiGuessInput.value = '';
+    }
+    
     // Send chat message
     function sendChatMessage() {
         const message = chatInput.value.trim();
@@ -254,14 +381,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle room joined
     function handleRoomJoined(data) {
         currentRoom = data.roomCode;
-        updateStatus(`Joined room: ${data.roomCode}`, 'success');
+        currentGame = data.gameType;
+        updateStatus(`Joined ${data.gameType} room: ${data.roomCode}`, 'success');
         
+        // Update UI based on game type
+        if (data.gameType === 'word-chain') {
+            showWordChainGame(data);
+        } else if (data.gameType === 'emoji-match') {
+            showEmojiMatchGame(data);
+        }
+        
+        // Show chat section
+        chatSection.classList.remove('hidden');
+        
+        // Add system message
+        addChatMessage('System', `Welcome to ${data.gameType === 'word-chain' ? 'Word Chain' : 'Emoji Match'} in room ${data.roomCode}! Share code: ${data.roomCode}`, true);
+    }
+    
+    // Show Word Chain game
+    function showWordChainGame(data) {
         // Update UI
-        currentRoomElement.textContent = data.roomCode;
-        playerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
+        wordchainRoomElement.textContent = data.roomCode;
+        wordchainPlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
         
         // Update player list
-        updatePlayerList(data.players);
+        updateWordChainPlayerList(data.players);
         
         // Update word chain if game in progress
         if (data.wordChain && data.wordChain.length > 0) {
@@ -277,52 +421,61 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update game state
         if (data.gameState) {
-            updateGameState(data.gameState);
+            updateWordChainGameState(data.gameState);
         }
         
         // Show game screen
-        showGameScreen();
+        showGameScreen('word-chain');
+    }
+    
+    // Show Emoji Match game
+    function showEmojiMatchGame(data) {
+        // Update UI
+        emojimatchRoomElement.textContent = data.roomCode;
+        emojimatchPlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
         
-        // Add system message
-        addChatMessage('System', `Welcome to room ${data.roomCode}! Share this code with friends: ${data.roomCode}`, true);
+        // Update player list
+        updateEmojiMatchPlayerList(data.players);
+        
+        // Update emoji puzzle if game in progress
+        if (data.currentPuzzle) {
+            updateEmojiPuzzle(data.currentPuzzle);
+        }
+        
+        // Update guesses if any
+        if (data.guesses && data.guesses.length > 0) {
+            updateEmojiGuesses(data.guesses);
+        }
+        
+        // Update game state
+        if (data.gameState) {
+            updateEmojiMatchGameState(data.gameState);
+        }
+        
+        // Show game screen
+        showGameScreen('emoji-match');
     }
     
-    // Handle player joined
-    function handlePlayerJoined(data) {
-        playerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
-        updatePlayerList(data.players);
-        addChatMessage('System', `${data.playerName} joined the room`, true);
-    }
-    
-    // Handle player left
-    function handlePlayerLeft(data) {
-        playerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
-        updatePlayerList(data.players);
-        addChatMessage('System', `${data.playerName} left the room`, true);
-    }
-    
-    // Update game state
-    function updateGameState(data) {
+    // Update Word Chain game state
+    function updateWordChainGameState(data) {
         // Update current player
-        currentPlayerElement.textContent = data.currentPlayer;
+        wordchainCurrentPlayerElement.textContent = data.currentPlayer;
         
         // Check if it's my turn
-        isMyTurn = data.currentPlayerId === playerId;
+        isMyTurnWordchain = data.currentPlayerId === playerId;
         
         // Update input field
-        if (isMyTurn) {
+        if (isMyTurnWordchain) {
             wordInput.disabled = false;
             wordInput.placeholder = "Your turn! Type a word...";
             wordInput.focus();
             submitWordBtn.disabled = false;
-            
-            // Add visual indication
-            currentPlayerElement.classList.add('highlight');
+            wordchainCurrentPlayerElement.classList.add('highlight');
         } else {
             wordInput.disabled = true;
             wordInput.placeholder = `Waiting for ${data.currentPlayer}...`;
             submitWordBtn.disabled = true;
-            currentPlayerElement.classList.remove('highlight');
+            wordchainCurrentPlayerElement.classList.remove('highlight');
         }
         
         // Update timer
@@ -330,27 +483,74 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(timerInterval);
         }
         
-        timeLeft = data.timeLeft;
-        updateTimerDisplay();
+        wordchainTimeLeft = data.timeLeft;
+        updateWordChainTimerDisplay();
         
         if (data.gameActive) {
             timerInterval = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay();
+                wordchainTimeLeft--;
+                updateWordChainTimerDisplay();
                 
-                if (timeLeft <= 0) {
+                if (wordchainTimeLeft <= 0) {
                     clearInterval(timerInterval);
                 }
             }, 1000);
         }
     }
     
-    // Handle turn update
-    function handleTurnUpdate(data) {
-        currentPlayerElement.textContent = data.currentPlayer;
-        isMyTurn = data.currentPlayerId === playerId;
+    // Update Emoji Match game state
+    function updateEmojiMatchGameState(data) {
+        // Update current player
+        emojimatchCurrentPlayerElement.textContent = data.currentPlayer;
         
-        if (isMyTurn) {
+        // Check if it's my turn
+        isMyTurnEmoji = data.currentPlayerId === playerId;
+        
+        // Update input field
+        if (isMyTurnEmoji) {
+            emojiGuessInput.disabled = false;
+            emojiGuessInput.placeholder = "Your turn! Guess the phrase...";
+            emojiGuessInput.focus();
+            submitGuessBtn.disabled = false;
+            emojimatchCurrentPlayerElement.classList.add('highlight');
+        } else {
+            emojiGuessInput.disabled = true;
+            emojiGuessInput.placeholder = `Waiting for ${data.currentPlayer}...`;
+            submitGuessBtn.disabled = true;
+            emojimatchCurrentPlayerElement.classList.remove('highlight');
+        }
+        
+        // Update timer
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        emojimatchTimeLeft = data.timeLeft;
+        updateEmojiMatchTimerDisplay();
+        
+        if (data.gameActive) {
+            timerInterval = setInterval(() => {
+                emojimatchTimeLeft--;
+                updateEmojiMatchTimerDisplay();
+                
+                if (emojimatchTimeLeft <= 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+        
+        // Update round
+        if (data.currentRound !== undefined) {
+            emojiRoundElement.textContent = `${data.currentRound}/5`;
+        }
+    }
+    
+    // Handle Word Chain turn update
+    function handleWordChainTurnUpdate(data) {
+        wordchainCurrentPlayerElement.textContent = data.currentPlayer;
+        isMyTurnWordchain = data.currentPlayerId === playerId;
+        
+        if (isMyTurnWordchain) {
             wordInput.disabled = false;
             wordInput.placeholder = "Your turn! Type a word...";
             wordInput.focus();
@@ -367,14 +567,49 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(timerInterval);
         }
         
-        timeLeft = 30;
-        updateTimerDisplay();
+        wordchainTimeLeft = 30;
+        updateWordChainTimerDisplay();
         
         timerInterval = setInterval(() => {
-            timeLeft--;
-            updateTimerDisplay();
+            wordchainTimeLeft--;
+            updateWordChainTimerDisplay();
             
-            if (timeLeft <= 0) {
+            if (wordchainTimeLeft <= 0) {
+                clearInterval(timerInterval);
+            }
+        }, 1000);
+    }
+    
+    // Handle Emoji Match turn update
+    function handleEmojiMatchTurnUpdate(data) {
+        emojimatchCurrentPlayerElement.textContent = data.currentPlayer;
+        isMyTurnEmoji = data.currentPlayerId === playerId;
+        
+        if (isMyTurnEmoji) {
+            emojiGuessInput.disabled = false;
+            emojiGuessInput.placeholder = "Your turn! Guess the phrase...";
+            emojiGuessInput.focus();
+            submitGuessBtn.disabled = false;
+            addChatMessage('System', "It's your turn! Guess the emoji puzzle.", true);
+        } else {
+            emojiGuessInput.disabled = true;
+            emojiGuessInput.placeholder = `Waiting for ${data.currentPlayer}...`;
+            submitGuessBtn.disabled = true;
+        }
+        
+        // Reset and start timer
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        emojimatchTimeLeft = 60;
+        updateEmojiMatchTimerDisplay();
+        
+        timerInterval = setInterval(() => {
+            emojimatchTimeLeft--;
+            updateEmojiMatchTimerDisplay();
+            
+            if (emojimatchTimeLeft <= 0) {
                 clearInterval(timerInterval);
             }
         }, 1000);
@@ -395,39 +630,141 @@ document.addEventListener('DOMContentLoaded', function() {
         usedWords.add(data.word.toLowerCase());
         
         // Update player scores
-        updatePlayerList(data.players);
+        updateWordChainPlayerList(data.players);
         
         // Update my score
         const myPlayer = data.players.find(p => p.id === playerId);
         if (myPlayer) {
-            playerScoreElement.textContent = myPlayer.score;
+            wordchainPlayerScoreElement.textContent = myPlayer.score;
         }
         
         // Scroll word chain to show new word
         wordChainElement.scrollLeft = wordChainElement.scrollWidth;
         
         // Add chat message
-        addChatMessage('System', `${data.playerName} added: ${data.word}`, true);
+        addChatMessage('System', `${data.playerName} added: ${data.word}`, true, 'new-word');
     }
     
-    // Update timer
-    function updateTimer(data) {
-        timeLeft = data.timeLeft;
-        updateTimerDisplay();
-    }
-    
-    // Update timer display
-    function updateTimerDisplay() {
-        timerElement.textContent = `${timeLeft}s`;
+    // Handle guess submitted
+    function handleGuessSubmitted(data) {
+        // Add guess to list
+        const guessElement = document.createElement('div');
+        guessElement.className = `guess-item ${data.isCorrect ? 'correct' : 'incorrect'}`;
+        guessElement.innerHTML = `
+            <span class="guess-player">${data.playerName}:</span>
+            <span class="guess-text">${data.guess}</span>
+            ${data.isCorrect ? '<span class="guess-result">✓ Correct!</span>' : ''}
+        `;
         
-        // Change color when time is running out
-        if (timeLeft <= 10) {
-            timerElement.style.color = '#ff416c';
-        } else if (timeLeft <= 20) {
-            timerElement.style.color = '#ffa500';
-        } else {
-            timerElement.style.color = '#4a00e0';
+        emojiGuessesElement.appendChild(guessElement);
+        
+        // Update player scores
+        updateEmojiMatchPlayerList(data.players);
+        
+        // Update my score
+        const myPlayer = data.players.find(p => p.id === playerId);
+        if (myPlayer) {
+            emojimatchPlayerScoreElement.textContent = myPlayer.score;
         }
+        
+        // Scroll guesses to show new guess
+        emojiGuessesElement.scrollTop = emojiGuessesElement.scrollHeight;
+        
+        // Add chat message
+        if (data.isCorrect) {
+            addChatMessage('System', `${data.playerName} guessed correctly: "${data.guess}"`, true, 'correct-guess');
+        }
+    }
+    
+    // Update emoji puzzle
+    function updateEmojiPuzzle(data) {
+        currentEmojiPuzzle = data;
+        
+        // Clear existing emojis
+        emojiPuzzleElement.innerHTML = '';
+        
+        // Add new emojis
+        data.emojis.forEach(emoji => {
+            const emojiElement = document.createElement('div');
+            emojiElement.className = 'emoji';
+            emojiElement.textContent = emoji;
+            emojiPuzzleElement.appendChild(emojiElement);
+        });
+        
+        // Update category
+        emojiCategoryElement.textContent = data.category;
+        
+        // Clear guesses
+        emojiGuessesElement.innerHTML = '';
+    }
+    
+    // Update emoji round
+    function updateEmojiRound(data) {
+        emojiRoundElement.textContent = `${data.currentRound}/5`;
+    }
+    
+    // Update Word Chain timer
+    function updateWordChainTimer(data) {
+        wordchainTimeLeft = data.timeLeft;
+        updateWordChainTimerDisplay();
+    }
+    
+    // Update Emoji Match timer
+    function updateEmojiMatchTimer(data) {
+        emojimatchTimeLeft = data.timeLeft;
+        updateEmojiMatchTimerDisplay();
+    }
+    
+    // Update Word Chain timer display
+    function updateWordChainTimerDisplay() {
+        wordchainTimerElement.textContent = `${wordchainTimeLeft}s`;
+        
+        if (wordchainTimeLeft <= 10) {
+            wordchainTimerElement.style.color = '#ff416c';
+        } else if (wordchainTimeLeft <= 20) {
+            wordchainTimerElement.style.color = '#ffa500';
+        } else {
+            wordchainTimerElement.style.color = '#4a00e0';
+        }
+    }
+    
+    // Update Emoji Match timer display
+    function updateEmojiMatchTimerDisplay() {
+        emojimatchTimerElement.textContent = `${emojimatchTimeLeft}s`;
+        
+        if (emojimatchTimeLeft <= 10) {
+            emojimatchTimerElement.style.color = '#ff416c';
+        } else if (emojimatchTimeLeft <= 30) {
+            emojimatchTimerElement.style.color = '#ffa500';
+        } else {
+            emojimatchTimerElement.style.color = '#4a00e0';
+        }
+    }
+    
+    // Handle player joined
+    function handlePlayerJoined(data) {
+        if (currentGame === 'word-chain') {
+            wordchainPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateWordChainPlayerList(data.players);
+        } else {
+            emojimatchPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateEmojiMatchPlayerList(data.players);
+        }
+        
+        addChatMessage('System', `${data.playerName} joined the room`, true);
+    }
+    
+    // Handle player left
+    function handlePlayerLeft(data) {
+        if (currentGame === 'word-chain') {
+            wordchainPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateWordChainPlayerList(data.players);
+        } else {
+            emojimatchPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateEmojiMatchPlayerList(data.players);
+        }
+        
+        addChatMessage('System', `${data.playerName} left the room`, true);
     }
     
     // Handle game over
@@ -439,17 +776,22 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(timerInterval);
         }
         
-        timerElement.textContent = "Game Over";
-        
-        // Disable input
-        wordInput.disabled = true;
-        wordInput.placeholder = "Game Over";
-        submitWordBtn.disabled = true;
+        if (currentGame === 'word-chain') {
+            wordchainTimerElement.textContent = "Game Over";
+            wordInput.disabled = true;
+            wordInput.placeholder = "Game Over";
+            submitWordBtn.disabled = true;
+        } else {
+            emojimatchTimerElement.textContent = "Game Over";
+            emojiGuessInput.disabled = true;
+            emojiGuessInput.placeholder = "Game Over";
+            submitGuessBtn.disabled = true;
+        }
     }
     
-    // Update player list
-    function updatePlayerList(players) {
-        playersListElement.innerHTML = '';
+    // Update Word Chain player list
+    function updateWordChainPlayerList(players) {
+        wordchainPlayersListElement.innerHTML = '';
         
         players.forEach(player => {
             const playerElement = document.createElement('div');
@@ -463,8 +805,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="player-score">${player.score}</div>
             `;
             
-            playersListElement.appendChild(playerElement);
+            wordchainPlayersListElement.appendChild(playerElement);
         });
+    }
+    
+    // Update Emoji Match player list
+    function updateEmojiMatchPlayerList(players) {
+        emojimatchPlayersListElement.innerHTML = '';
+        
+        players.forEach(player => {
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-item ${player.id === playerId ? 'active' : ''}`;
+            
+            playerElement.innerHTML = `
+                <div class="player-info">
+                    <span class="player-name">${player.name} ${player.id === playerId ? '(You)' : ''}</span>
+                    <div class="player-status">${player.isCurrentPlayer ? '⏳ Current turn' : 'Waiting'}</div>
+                </div>
+                <div class="player-score">${player.score}</div>
+            `;
+            
+            emojimatchPlayersListElement.appendChild(playerElement);
+        });
+    }
+    
+    // Update emoji guesses
+    function updateEmojiGuesses(guesses) {
+        emojiGuessesElement.innerHTML = '';
+        
+        guesses.forEach(guess => {
+            const guessElement = document.createElement('div');
+            guessElement.className = `guess-item ${guess.isCorrect ? 'correct' : 'incorrect'}`;
+            guessElement.innerHTML = `
+                <span class="guess-player">${guess.playerName}:</span>
+                <span class="guess-text">${guess.guess}</span>
+                ${guess.isCorrect ? '<span class="guess-result">✓ Correct!</span>' : ''}
+            `;
+            
+            emojiGuessesElement.appendChild(guessElement);
+        });
+        
+        // Scroll to bottom
+        emojiGuessesElement.scrollTop = emojiGuessesElement.scrollHeight;
     }
     
     // Update word chain
@@ -481,9 +863,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Add chat message
-    function addChatMessage(sender, message, isSystem = false) {
+    function addChatMessage(sender, message, isSystem = false, type = '') {
         const messageElement = document.createElement('div');
-        messageElement.className = `message ${isSystem ? 'system' : ''}`;
+        messageElement.className = `message ${isSystem ? 'system' : ''} ${type}`;
         
         const now = new Date();
         const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -504,10 +886,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateStatus(message, type) {
         statusElement.textContent = message;
         
-        // Reset classes
         statusElement.className = '';
-        
-        // Add type class
         if (type === 'success') {
             statusElement.classList.add('success');
         } else if (type === 'error') {
@@ -516,12 +895,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Show game screen
-    function showGameScreen() {
+    function showGameScreen(gameType) {
         connectionSection.classList.remove('active');
         connectionSection.classList.add('hidden');
         
-        gameSection.classList.remove('hidden');
-        gameSection.classList.add('active');
+        // Hide all game sections
+        document.querySelectorAll('.game-section').forEach(section => {
+            section.classList.remove('active');
+            section.classList.add('hidden');
+        });
+        
+        // Show selected game section
+        if (gameType === 'word-chain') {
+            wordchainSection.classList.remove('hidden');
+            wordchainSection.classList.add('active');
+        } else if (gameType === 'emoji-match') {
+            emojimatchSection.classList.remove('hidden');
+            emojimatchSection.classList.add('active');
+        }
     }
     
     // Show connection screen
@@ -529,38 +920,70 @@ document.addEventListener('DOMContentLoaded', function() {
         connectionSection.classList.remove('hidden');
         connectionSection.classList.add('active');
         
-        gameSection.classList.remove('active');
-        gameSection.classList.add('hidden');
+        // Hide all game sections
+        document.querySelectorAll('.game-section').forEach(section => {
+            section.classList.remove('active');
+            section.classList.add('hidden');
+        });
+        
+        // Hide chat section
+        chatSection.classList.add('hidden');
+        
+        // Hide modal
+        startGameModal.classList.add('hidden');
     }
     
     // Reset game state
     function resetGame() {
         currentRoom = null;
-        isMyTurn = false;
+        currentGame = null;
+        isHost = false;
+        isMyTurnWordchain = false;
+        isMyTurnEmoji = false;
         
         if (timerInterval) {
             clearInterval(timerInterval);
         }
         
-        timeLeft = 30;
+        wordchainTimeLeft = 30;
+        emojimatchTimeLeft = 60;
         usedWords.clear();
+        currentEmojiPuzzle = null;
         
         // Reset UI elements
-        currentRoomElement.textContent = '---';
-        playerCountElement.textContent = '1 player';
-        currentPlayerElement.textContent = 'Waiting...';
-        playerScoreElement.textContent = '0';
-        timerElement.textContent = '30s';
+        wordchainRoomElement.textContent = '---';
+        wordchainPlayerCountElement.textContent = '1 player';
+        wordchainCurrentPlayerElement.textContent = 'Waiting...';
+        wordchainPlayerScoreElement.textContent = '0';
+        wordchainTimerElement.textContent = '30s';
         lastLetterElement.textContent = '-';
         wordInput.value = '';
         wordInput.disabled = false;
         submitWordBtn.disabled = false;
         
-        // Clear players list
-        playersListElement.innerHTML = '';
+        emojimatchRoomElement.textContent = '---';
+        emojimatchPlayerCountElement.textContent = '1 player';
+        emojimatchCurrentPlayerElement.textContent = 'Waiting...';
+        emojimatchPlayerScoreElement.textContent = '0';
+        emojimatchTimerElement.textContent = '60s';
+        emojiRoundElement.textContent = '1/5';
+        emojiGuessInput.value = '';
+        emojiGuessInput.disabled = false;
+        submitGuessBtn.disabled = false;
+        emojiCategoryElement.textContent = 'Movies';
+        
+        // Clear player lists
+        wordchainPlayersListElement.innerHTML = '';
+        emojimatchPlayersListElement.innerHTML = '';
         
         // Clear word chain
         wordChainElement.innerHTML = '<div class="word-chain-start">START →</div>';
+        
+        // Clear emoji puzzle
+        emojiPuzzleElement.innerHTML = '';
+        
+        // Clear guesses
+        emojiGuessesElement.innerHTML = '';
         
         // Clear chat (keep first message)
         const firstMessage = chatMessagesElement.querySelector('.message');
