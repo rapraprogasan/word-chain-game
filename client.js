@@ -1,9 +1,11 @@
-// Enhanced client for both Word Chain and Emoji Match games
+// Complete Client JavaScript for 4 Games
 document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
     const connectionSection = document.getElementById('connection-section');
     const wordchainSection = document.getElementById('wordchain-section');
     const emojimatchSection = document.getElementById('emojimatch-section');
+    const flappybirdSection = document.getElementById('flappybird-section');
+    const emojiraceSection = document.getElementById('emojirace-section');
     const chatSection = document.getElementById('chat-section');
     
     // Connection elements
@@ -12,14 +14,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const joinRoomBtn = document.getElementById('join-room');
     const createRoomBtn = document.getElementById('create-room');
     const statusElement = document.getElementById('status');
+    const gameLinkElement = document.getElementById('game-link');
     
     // Game selection
     const gameOptions = document.querySelectorAll('.game-option');
-    const selectedGame = { type: 'word-chain' }; // Default game
+    const selectedGame = { type: 'word-chain' };
     
     // Word Chain elements
     const leaveWordchainBtn = document.getElementById('leave-wordchain');
-    const switchToEmojiBtn = document.getElementById('switch-to-emoji');
+    const switchGameWordchainBtn = document.getElementById('switch-game-wordchain');
     const wordchainRoomElement = document.getElementById('wordchain-room');
     const wordchainPlayerCountElement = document.getElementById('wordchain-player-count');
     const wordchainPlayersListElement = document.getElementById('wordchain-players-list');
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Emoji Match elements
     const leaveEmojimatchBtn = document.getElementById('leave-emojimatch');
-    const switchToWordchainBtn = document.getElementById('switch-to-wordchain');
+    const switchGameEmojimatchBtn = document.getElementById('switch-game-emojimatch');
     const emojimatchRoomElement = document.getElementById('emojimatch-room');
     const emojimatchPlayerCountElement = document.getElementById('emojimatch-player-count');
     const emojimatchPlayersListElement = document.getElementById('emojimatch-players-list');
@@ -47,6 +50,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const emojiCategoryElement = document.getElementById('emoji-category');
     const emojiGuessesElement = document.getElementById('emoji-guesses');
     
+    // Flappy Bird elements
+    const leaveFlappybirdBtn = document.getElementById('leave-flappybird');
+    const switchGameFlappybirdBtn = document.getElementById('switch-game-flappybird');
+    const flappybirdRoomElement = document.getElementById('flappybird-room');
+    const flappybirdPlayerCountElement = document.getElementById('flappybird-player-count');
+    const flappybirdPlayersListElement = document.getElementById('flappybird-players-list');
+    const flappyCanvas = document.getElementById('flappy-canvas');
+    const flappyHighscoreElement = document.getElementById('flappy-highscore');
+    const flappyStatusElement = document.getElementById('flappy-status');
+    const flappyActivePlayersElement = document.getElementById('flappy-active-players');
+    const flapBtn = document.getElementById('flap-btn');
+    const startFlappyBtn = document.getElementById('start-flappy-btn');
+    const restartFlappyBtn = document.getElementById('restart-flappy-btn');
+    
+    // Emoji Race elements
+    const leaveEmojiraceBtn = document.getElementById('leave-emojirace');
+    const switchGameEmojiraceBtn = document.getElementById('switch-game-emojirace');
+    const emojiraceRoomElement = document.getElementById('emojirace-room');
+    const emojiracePlayerCountElement = document.getElementById('emojirace-player-count');
+    const emojiracePlayersListElement = document.getElementById('emojirace-players-list');
+    const raceTrackElement = document.getElementById('race-track');
+    const raceStatusElement = document.getElementById('race-status');
+    const trackLengthElement = document.getElementById('track-length');
+    const raceSpeedElement = document.getElementById('race-speed');
+    const raceWinnerElement = document.getElementById('race-winner');
+    const startRaceBtn = document.getElementById('start-race-btn');
+    const resetRaceBtn = document.getElementById('reset-race-btn');
+    const playerKeys = document.querySelectorAll('.player-key');
+    
     // Chat elements (shared)
     const chatMessagesElement = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
@@ -56,6 +88,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const startGameModal = document.getElementById('start-game-modal');
     const startGameBtn = document.getElementById('start-game-btn');
     const waitPlayersBtn = document.getElementById('wait-players-btn');
+    
+    // Mobile notification
+    const mobileNotification = document.getElementById('mobile-notification');
     
     // Game state
     let socket = null;
@@ -75,10 +110,31 @@ document.addEventListener('DOMContentLoaded', function() {
     let isMyTurnEmoji = false;
     let currentEmojiPuzzle = null;
     
+    // Flappy Bird game state
+    let flappyCtx = null;
+    let flappyGameRunning = false;
+    let flappyScore = 0;
+    let flappyHighscore = 0;
+    let flappyPlayers = {};
+    let myFlappyBird = null;
+    let flappyPipes = [];
+    
+    // Emoji Race game state
+    let raceGameRunning = false;
+    let racePlayers = {};
+    let myRacer = null;
+    let raceFinishLine = 1000;
+    let raceKeys = {
+        '1': 'A',
+        '2': 'L', 
+        '3': 'F',
+        '4': 'J'
+    };
+    let keyPressCount = 0;
+    
     // Initialize game
     function init() {
         // Update game link
-        const gameLinkElement = document.getElementById('game-link');
         gameLinkElement.textContent = window.location.href;
         
         // Game selection
@@ -93,10 +149,18 @@ document.addEventListener('DOMContentLoaded', function() {
         // Event listeners
         joinRoomBtn.addEventListener('click', joinRoom);
         createRoomBtn.addEventListener('click', createRoom);
+        
+        // Leave buttons
         leaveWordchainBtn.addEventListener('click', leaveRoom);
         leaveEmojimatchBtn.addEventListener('click', leaveRoom);
-        switchToEmojiBtn.addEventListener('click', () => switchGame('emoji-match'));
-        switchToWordchainBtn.addEventListener('click', () => switchGame('word-chain'));
+        leaveFlappybirdBtn.addEventListener('click', leaveRoom);
+        leaveEmojiraceBtn.addEventListener('click', leaveRoom);
+        
+        // Switch game buttons
+        switchGameWordchainBtn.addEventListener('click', () => showGameSelection());
+        switchGameEmojimatchBtn.addEventListener('click', () => showGameSelection());
+        switchGameFlappybirdBtn.addEventListener('click', () => showGameSelection());
+        switchGameEmojiraceBtn.addEventListener('click', () => showGameSelection());
         
         // Word Chain events
         submitWordBtn.addEventListener('click', submitWord);
@@ -110,6 +174,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.key === 'Enter') submitGuess();
         });
         
+        // Flappy Bird events
+        flapBtn.addEventListener('click', flapBird);
+        startFlappyBtn.addEventListener('click', startFlappyGame);
+        restartFlappyBtn.addEventListener('click', restartFlappyGame);
+        
+        // Emoji Race events
+        startRaceBtn.addEventListener('click', startRaceGame);
+        resetRaceBtn.addEventListener('click', resetRaceGame);
+        
+        // Keyboard events for Emoji Race
+        document.addEventListener('keydown', handleRaceKeyPress);
+        
         // Chat events
         sendChatBtn.addEventListener('click', sendChatMessage);
         chatInput.addEventListener('keypress', function(e) {
@@ -121,6 +197,34 @@ document.addEventListener('DOMContentLoaded', function() {
         waitPlayersBtn.addEventListener('click', () => {
             startGameModal.classList.add('hidden');
         });
+        
+        // Initialize Flappy Bird canvas
+        if (flappyCanvas) {
+            flappyCtx = flappyCanvas.getContext('2d');
+            flappyCanvas.addEventListener('click', flapBird);
+            flappyCanvas.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                flapBird();
+            });
+            
+            // Also handle space key for flappy bird
+            document.addEventListener('keydown', function(e) {
+                if (e.code === 'Space' && currentGame === 'flappy-bird' && flappyGameRunning) {
+                    e.preventDefault();
+                    flapBird();
+                }
+            });
+        }
+        
+        // Check if mobile device
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            setTimeout(() => {
+                mobileNotification.classList.remove('hidden');
+                setTimeout(() => {
+                    mobileNotification.classList.add('hidden');
+                }, 5000);
+            }, 3000);
+        }
         
         // Initialize with a random room code if empty
         if (!roomCodeInput.value) {
@@ -134,12 +238,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const numbers = '0123456789';
         let code = '';
         
-        // 4 letters
         for (let i = 0; i < 4; i++) {
             code += letters.charAt(Math.floor(Math.random() * letters.length));
         }
         
-        // 3 numbers
         for (let i = 0; i < 3; i++) {
             code += numbers.charAt(Math.floor(Math.random() * numbers.length));
         }
@@ -220,6 +322,40 @@ document.addEventListener('DOMContentLoaded', function() {
             updateEmojiRound(data);
         });
         
+        // Flappy Bird events
+        socket.on('flappybird-game-state', (data) => {
+            updateFlappyBirdGameState(data);
+        });
+        
+        socket.on('flappybird-update', (data) => {
+            updateFlappyBirdGame(data);
+        });
+        
+        socket.on('flappybird-player-update', (data) => {
+            updateFlappyBirdPlayer(data);
+        });
+        
+        socket.on('flappybird-game-over', (data) => {
+            handleFlappyBirdGameOver(data);
+        });
+        
+        // Emoji Race events
+        socket.on('emojirace-game-state', (data) => {
+            updateEmojiRaceGameState(data);
+        });
+        
+        socket.on('emojirace-update', (data) => {
+            updateEmojiRaceGame(data);
+        });
+        
+        socket.on('emojirace-player-move', (data) => {
+            updateEmojiRacePlayer(data);
+        });
+        
+        socket.on('emojirace-game-over', (data) => {
+            handleEmojiRaceGameOver(data);
+        });
+        
         // Shared events
         socket.on('chat-message', (data) => {
             addChatMessage(data.sender, data.message, data.isSystem, data.type);
@@ -232,7 +368,6 @@ document.addEventListener('DOMContentLoaded', function() {
         socket.on('host-status', (data) => {
             isHost = data.isHost;
             if (isHost && data.players.length >= 2) {
-                // Show start game modal if host and at least 2 players
                 startGameModal.classList.remove('hidden');
             }
         });
@@ -289,20 +424,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Switch between games
-    function switchGame(gameType) {
-        if (!socket || !socket.connected || !currentRoom) {
-            alert('You must be in a room to switch games');
-            return;
-        }
-        
-        socket.emit('switch-game', { gameType });
-        selectedGame.type = gameType;
-        
-        // Update UI to show selected game
-        gameOptions.forEach(opt => {
-            opt.classList.toggle('active', opt.dataset.game === gameType);
-        });
+    // Show game selection
+    function showGameSelection() {
+        showConnectionScreen();
     }
     
     // Leave room
@@ -322,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Submit a word (Word Chain)
+    // Word Chain functions
     function submitWord() {
         if (!isMyTurnWordchain) {
             addChatMessage('System', "It's not your turn!", true);
@@ -350,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
         wordInput.value = '';
     }
     
-    // Submit a guess (Emoji Match)
+    // Emoji Match functions
     function submitGuess() {
         if (!isMyTurnEmoji) {
             addChatMessage('System', "It's not your turn!", true);
@@ -366,6 +490,76 @@ document.addEventListener('DOMContentLoaded', function() {
         
         socket.emit('submit-guess', { guess });
         emojiGuessInput.value = '';
+    }
+    
+    // Flappy Bird functions
+    function startFlappyGame() {
+        if (socket && socket.connected) {
+            socket.emit('start-flappy-game');
+            flappyGameRunning = true;
+            flappyStatusElement.textContent = 'Playing';
+        }
+    }
+    
+    function restartFlappyGame() {
+        if (socket && socket.connected) {
+            socket.emit('restart-flappy-game');
+            flappyScore = 0;
+            flappyStatusElement.textContent = 'Ready';
+        }
+    }
+    
+    function flapBird() {
+        if (socket && socket.connected && flappyGameRunning) {
+            socket.emit('flap-bird');
+        }
+    }
+    
+    // Emoji Race functions
+    function startRaceGame() {
+        if (socket && socket.connected) {
+            socket.emit('start-race-game');
+            raceGameRunning = true;
+            raceStatusElement.textContent = 'Racing!';
+        }
+    }
+    
+    function resetRaceGame() {
+        if (socket && socket.connected) {
+            socket.emit('reset-race-game');
+            raceGameRunning = false;
+            raceStatusElement.textContent = 'Ready';
+        }
+    }
+    
+    function handleRaceKeyPress(e) {
+        if (!raceGameRunning || !socket || !socket.connected) return;
+        
+        const key = e.key.toUpperCase();
+        let playerNumber = null;
+        
+        // Find which player this key belongs to
+        for (const [playerNum, keyChar] of Object.entries(raceKeys)) {
+            if (key === keyChar) {
+                playerNumber = playerNum;
+                break;
+            }
+        }
+        
+        if (playerNumber && racePlayers[playerId] && racePlayers[playerId].position < raceFinishLine) {
+            socket.emit('race-key-press', { playerNumber });
+            keyPressCount++;
+            
+            // Visual feedback
+            playerKeys.forEach(keyEl => {
+                if (keyEl.dataset.player === playerNumber) {
+                    keyEl.classList.add('active');
+                    setTimeout(() => {
+                        keyEl.classList.remove('active');
+                    }, 100);
+                }
+            });
+        }
     }
     
     // Send chat message
@@ -389,22 +583,33 @@ document.addEventListener('DOMContentLoaded', function() {
             showWordChainGame(data);
         } else if (data.gameType === 'emoji-match') {
             showEmojiMatchGame(data);
+        } else if (data.gameType === 'flappy-bird') {
+            showFlappyBirdGame(data);
+        } else if (data.gameType === 'emoji-race') {
+            showEmojiRaceGame(data);
         }
         
         // Show chat section
         chatSection.classList.remove('hidden');
         
-        // Add system message
-        addChatMessage('System', `Welcome to ${data.gameType === 'word-chain' ? 'Word Chain' : 'Emoji Match'} in room ${data.roomCode}! Share code: ${data.roomCode}`, true);
+        addChatMessage('System', `Welcome to ${getGameName(data.gameType)} in room ${data.roomCode}! Share code: ${data.roomCode}`, true);
+    }
+    
+    function getGameName(gameType) {
+        const games = {
+            'word-chain': 'Word Chain',
+            'emoji-match': 'Emoji Match',
+            'flappy-bird': 'Flappy Bird',
+            'emoji-race': 'Emoji Race'
+        };
+        return games[gameType] || gameType;
     }
     
     // Show Word Chain game
     function showWordChainGame(data) {
-        // Update UI
         wordchainRoomElement.textContent = data.roomCode;
         wordchainPlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
         
-        // Update player list
         updateWordChainPlayerList(data.players);
         
         // Update word chain if game in progress
@@ -424,17 +629,14 @@ document.addEventListener('DOMContentLoaded', function() {
             updateWordChainGameState(data.gameState);
         }
         
-        // Show game screen
         showGameScreen('word-chain');
     }
     
     // Show Emoji Match game
     function showEmojiMatchGame(data) {
-        // Update UI
         emojimatchRoomElement.textContent = data.roomCode;
         emojimatchPlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
         
-        // Update player list
         updateEmojiMatchPlayerList(data.players);
         
         // Update emoji puzzle if game in progress
@@ -452,8 +654,48 @@ document.addEventListener('DOMContentLoaded', function() {
             updateEmojiMatchGameState(data.gameState);
         }
         
-        // Show game screen
         showGameScreen('emoji-match');
+    }
+    
+    // Show Flappy Bird game
+    function showFlappyBirdGame(data) {
+        flappybirdRoomElement.textContent = data.roomCode;
+        flappybirdPlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
+        
+        updateFlappyBirdPlayerList(data.players);
+        
+        if (data.gameState) {
+            updateFlappyBirdGameState(data.gameState);
+        }
+        
+        if (data.playersData) {
+            flappyPlayers = data.playersData;
+            drawFlappyBirdGame();
+        }
+        
+        showGameScreen('flappy-bird');
+        
+        // Start game loop
+        requestAnimationFrame(flappyGameLoop);
+    }
+    
+    // Show Emoji Race game
+    function showEmojiRaceGame(data) {
+        emojiraceRoomElement.textContent = data.roomCode;
+        emojiracePlayerCountElement.textContent = `${data.players.length} player${data.players.length !== 1 ? 's' : ''}`;
+        
+        updateEmojiRacePlayerList(data.players);
+        
+        if (data.gameState) {
+            updateEmojiRaceGameState(data.gameState);
+        }
+        
+        if (data.playersData) {
+            racePlayers = data.playersData;
+            drawEmojiRaceGame();
+        }
+        
+        showGameScreen('emoji-race');
     }
     
     // Update Word Chain game state
@@ -542,6 +784,30 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update round
         if (data.currentRound !== undefined) {
             emojiRoundElement.textContent = `${data.currentRound}/5`;
+        }
+    }
+    
+    // Update Flappy Bird game state
+    function updateFlappyBirdGameState(data) {
+        flappyGameRunning = data.gameActive;
+        flappyStatusElement.textContent = data.gameActive ? 'Playing' : 'Waiting';
+        flappyActivePlayersElement.textContent = data.activePlayers;
+        
+        if (data.highScore !== undefined) {
+            flappyHighscore = data.highScore;
+            flappyHighscoreElement.textContent = flappyHighscore;
+        }
+    }
+    
+    // Update Emoji Race game state
+    function updateEmojiRaceGameState(data) {
+        raceGameRunning = data.gameActive;
+        raceStatusElement.textContent = data.gameActive ? 'Racing!' : 'Waiting';
+        trackLengthElement.textContent = `${data.trackLength}m`;
+        raceSpeedElement.textContent = data.speed;
+        
+        if (data.winner) {
+            raceWinnerElement.textContent = data.winner;
         }
     }
     
@@ -703,42 +969,53 @@ document.addEventListener('DOMContentLoaded', function() {
         emojiRoundElement.textContent = `${data.currentRound}/5`;
     }
     
-    // Update Word Chain timer
-    function updateWordChainTimer(data) {
-        wordchainTimeLeft = data.timeLeft;
-        updateWordChainTimerDisplay();
+    // Update Flappy Bird game
+    function updateFlappyBirdGame(data) {
+        flappyPlayers = data.players;
+        flappyScore = data.score;
+        flappyPipes = data.pipes || [];
+        drawFlappyBirdGame();
     }
     
-    // Update Emoji Match timer
-    function updateEmojiMatchTimer(data) {
-        emojimatchTimeLeft = data.timeLeft;
-        updateEmojiMatchTimerDisplay();
+    // Update Emoji Race game
+    function updateEmojiRaceGame(data) {
+        racePlayers = data.players;
+        drawEmojiRaceGame();
     }
     
-    // Update Word Chain timer display
-    function updateWordChainTimerDisplay() {
-        wordchainTimerElement.textContent = `${wordchainTimeLeft}s`;
+    // Handle Flappy Bird game over
+    function handleFlappyBirdGameOver(data) {
+        flappyGameRunning = false;
+        flappyStatusElement.textContent = 'Game Over';
         
-        if (wordchainTimeLeft <= 10) {
-            wordchainTimerElement.style.color = '#ff416c';
-        } else if (wordchainTimeLeft <= 20) {
-            wordchainTimerElement.style.color = '#ffa500';
+        if (data.winner === playerId) {
+            addChatMessage('System', '🎉 You won the Flappy Bird game!', true, 'flappy-score');
         } else {
-            wordchainTimerElement.style.color = '#4a00e0';
+            addChatMessage('System', `🏆 ${data.winnerName} won the Flappy Bird game with score ${data.winningScore}!`, true, 'flappy-score');
+        }
+        
+        if (data.highScore > flappyHighscore) {
+            flappyHighscore = data.highScore;
+            flappyHighscoreElement.textContent = flappyHighscore;
         }
     }
     
-    // Update Emoji Match timer display
-    function updateEmojiMatchTimerDisplay() {
-        emojimatchTimerElement.textContent = `${emojimatchTimeLeft}s`;
+    // Handle Emoji Race game over
+    function handleEmojiRaceGameOver(data) {
+        raceGameRunning = false;
+        raceStatusElement.textContent = 'Race Over';
+        raceWinnerElement.textContent = data.winnerName;
         
-        if (emojimatchTimeLeft <= 10) {
-            emojimatchTimerElement.style.color = '#ff416c';
-        } else if (emojimatchTimeLeft <= 30) {
-            emojimatchTimerElement.style.color = '#ffa500';
+        if (data.winner === playerId) {
+            addChatMessage('System', '🏁 You won the Emoji Race!', true, 'race-win');
         } else {
-            emojimatchTimerElement.style.color = '#4a00e0';
+            addChatMessage('System', `🏁 ${data.winnerName} won the Emoji Race!`, true, 'race-win');
         }
+    }
+    
+    // Handle game over (generic)
+    function handleGameOver(data) {
+        addChatMessage('System', `Game over! ${data.winner} wins with ${data.winningScore} points!`, true);
     }
     
     // Handle player joined
@@ -746,9 +1023,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentGame === 'word-chain') {
             wordchainPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
             updateWordChainPlayerList(data.players);
-        } else {
+        } else if (currentGame === 'emoji-match') {
             emojimatchPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
             updateEmojiMatchPlayerList(data.players);
+        } else if (currentGame === 'flappy-bird') {
+            flappybirdPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateFlappyBirdPlayerList(data.players);
+        } else if (currentGame === 'emoji-race') {
+            emojiracePlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateEmojiRacePlayerList(data.players);
         }
         
         addChatMessage('System', `${data.playerName} joined the room`, true);
@@ -759,34 +1042,149 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentGame === 'word-chain') {
             wordchainPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
             updateWordChainPlayerList(data.players);
-        } else {
+        } else if (currentGame === 'emoji-match') {
             emojimatchPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
             updateEmojiMatchPlayerList(data.players);
+        } else if (currentGame === 'flappy-bird') {
+            flappybirdPlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateFlappyBirdPlayerList(data.players);
+        } else if (currentGame === 'emoji-race') {
+            emojiracePlayerCountElement.textContent = `${data.playerCount} player${data.playerCount !== 1 ? 's' : ''}`;
+            updateEmojiRacePlayerList(data.players);
         }
         
         addChatMessage('System', `${data.playerName} left the room`, true);
     }
     
-    // Handle game over
-    function handleGameOver(data) {
-        addChatMessage('System', `Game over! ${data.winner} wins with ${data.winningScore} points!`, true);
+    // Draw Flappy Bird game
+    function drawFlappyBirdGame() {
+        if (!flappyCtx) return;
         
-        // Reset timer
-        if (timerInterval) {
-            clearInterval(timerInterval);
-        }
+        const canvas = flappyCanvas;
+        const ctx = flappyCtx;
         
-        if (currentGame === 'word-chain') {
-            wordchainTimerElement.textContent = "Game Over";
-            wordInput.disabled = true;
-            wordInput.placeholder = "Game Over";
-            submitWordBtn.disabled = true;
-        } else {
-            emojimatchTimerElement.textContent = "Game Over";
-            emojiGuessInput.disabled = true;
-            emojiGuessInput.placeholder = "Game Over";
-            submitGuessBtn.disabled = true;
-        }
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw sky
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw ground
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+        
+        // Draw grass
+        ctx.fillStyle = '#7CFC00';
+        ctx.fillRect(0, canvas.height - 50, canvas.width, 10);
+        
+        // Draw pipes
+        flappyPipes.forEach(pipe => {
+            // Top pipe
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x, 0, 60, pipe.topHeight);
+            
+            // Bottom pipe
+            ctx.fillRect(pipe.x, canvas.height - pipe.bottomHeight, 60, pipe.bottomHeight);
+            
+            // Pipe edges
+            ctx.fillStyle = '#006400';
+            ctx.fillRect(pipe.x - 5, pipe.topHeight - 20, 70, 20);
+            ctx.fillRect(pipe.x - 5, canvas.height - pipe.bottomHeight, 70, 20);
+        });
+        
+        // Draw birds
+        Object.values(flappyPlayers).forEach(player => {
+            if (!player.alive) return;
+            
+            // Draw bird
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            
+            // Bird body
+            ctx.fillStyle = player.color || '#FFD700';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 20, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird wing
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.ellipse(-10, 0, 10, 8, Math.PI/4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird eye
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(10, -5, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird beak
+            ctx.fillStyle = '#FF4500';
+            ctx.beginPath();
+            ctx.moveTo(20, 0);
+            ctx.lineTo(30, 0);
+            ctx.lineTo(20, 5);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // Draw player name
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(player.name, player.x, player.y - 30);
+            
+            // Draw score
+            ctx.fillStyle = '#4a00e0';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(`Score: ${player.score}`, player.x, player.y - 45);
+        });
+        
+        // Draw score
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Score: ${flappyScore}`, 20, 40);
+        ctx.fillText(`High Score: ${flappyHighscore}`, 20, 70);
+    }
+    
+    // Draw Emoji Race game
+    function drawEmojiRaceGame() {
+        raceTrackElement.innerHTML = '';
+        
+        // Create lanes for each player
+        const playerIds = Object.keys(racePlayers);
+        const laneHeight = 80;
+        
+        playerIds.forEach((playerId, index) => {
+            const player = racePlayers[playerId];
+            const lane = document.createElement('div');
+            lane.className = 'race-lane';
+            lane.style.height = `${laneHeight}px`;
+            
+            // Create racer emoji
+            const racer = document.createElement('div');
+            racer.className = 'emoji-racer';
+            racer.textContent = player.emoji || '🚗';
+            racer.style.left = `${50 + (player.position || 0)}px`;
+            racer.style.top = `${index * laneHeight + 20}px`;
+            
+            // Create player info
+            const info = document.createElement('div');
+            info.className = 'racer-info';
+            info.textContent = `${player.name} (${Math.round(player.speed || 0)}m/s)`;
+            info.style.top = `${index * laneHeight + 30}px`;
+            
+            lane.appendChild(racer);
+            lane.appendChild(info);
+            raceTrackElement.appendChild(lane);
+        });
+        
+        // Add finish line
+        const finishLine = document.createElement('div');
+        finishLine.className = 'finish-line';
+        raceTrackElement.appendChild(finishLine);
     }
     
     // Update Word Chain player list
@@ -829,6 +1227,49 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Update Flappy Bird player list
+    function updateFlappyBirdPlayerList(players) {
+        flappybirdPlayersListElement.innerHTML = '';
+        
+        players.forEach(player => {
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-item ${player.id === playerId ? 'active' : ''}`;
+            
+            playerElement.innerHTML = `
+                <div class="player-info">
+                    <span class="player-name">${player.name} ${player.id === playerId ? '(You)' : ''}</span>
+                    <div class="player-status">${player.alive ? '🕊️ Flying' : '💀 Dead'}</div>
+                </div>
+                <div class="player-score">${player.score || 0}</div>
+            `;
+            
+            flappybirdPlayersListElement.appendChild(playerElement);
+        });
+    }
+    
+    // Update Emoji Race player list
+    function updateEmojiRacePlayerList(players) {
+        emojiracePlayersListElement.innerHTML = '';
+        
+        players.forEach((player, index) => {
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-item ${player.id === playerId ? 'active' : ''}`;
+            
+            // Assign key to player
+            const key = raceKeys[(index + 1).toString()] || '?';
+            
+            playerElement.innerHTML = `
+                <div class="player-info">
+                    <span class="player-name">${player.name} ${player.id === playerId ? '(You)' : ''}</span>
+                    <div class="player-status">Key: <kbd>${key}</kbd></div>
+                </div>
+                <div class="player-score">${Math.floor((player.position || 0) / 10)}m</div>
+            `;
+            
+            emojiracePlayersListElement.appendChild(playerElement);
+        });
+    }
+    
     // Update emoji guesses
     function updateEmojiGuesses(guesses) {
         emojiGuessesElement.innerHTML = '';
@@ -860,6 +1301,44 @@ document.addEventListener('DOMContentLoaded', function() {
             wordElement.title = `Added by ${item.player}`;
             wordChainElement.appendChild(wordElement);
         });
+    }
+    
+    // Update Word Chain timer
+    function updateWordChainTimer(data) {
+        wordchainTimeLeft = data.timeLeft;
+        updateWordChainTimerDisplay();
+    }
+    
+    // Update Emoji Match timer
+    function updateEmojiMatchTimer(data) {
+        emojimatchTimeLeft = data.timeLeft;
+        updateEmojiMatchTimerDisplay();
+    }
+    
+    // Update Word Chain timer display
+    function updateWordChainTimerDisplay() {
+        wordchainTimerElement.textContent = `${wordchainTimeLeft}s`;
+        
+        if (wordchainTimeLeft <= 10) {
+            wordchainTimerElement.style.color = '#ff416c';
+        } else if (wordchainTimeLeft <= 20) {
+            wordchainTimerElement.style.color = '#ffa500';
+        } else {
+            wordchainTimerElement.style.color = '#4a00e0';
+        }
+    }
+    
+    // Update Emoji Match timer display
+    function updateEmojiMatchTimerDisplay() {
+        emojimatchTimerElement.textContent = `${emojimatchTimeLeft}s`;
+        
+        if (emojimatchTimeLeft <= 10) {
+            emojimatchTimerElement.style.color = '#ff416c';
+        } else if (emojimatchTimeLeft <= 30) {
+            emojimatchTimerElement.style.color = '#ffa500';
+        } else {
+            emojimatchTimerElement.style.color = '#4a00e0';
+        }
     }
     
     // Add chat message
@@ -899,19 +1378,23 @@ document.addEventListener('DOMContentLoaded', function() {
         connectionSection.classList.remove('active');
         connectionSection.classList.add('hidden');
         
-        // Hide all game sections
         document.querySelectorAll('.game-section').forEach(section => {
             section.classList.remove('active');
             section.classList.add('hidden');
         });
         
-        // Show selected game section
         if (gameType === 'word-chain') {
             wordchainSection.classList.remove('hidden');
             wordchainSection.classList.add('active');
         } else if (gameType === 'emoji-match') {
             emojimatchSection.classList.remove('hidden');
             emojimatchSection.classList.add('active');
+        } else if (gameType === 'flappy-bird') {
+            flappybirdSection.classList.remove('hidden');
+            flappybirdSection.classList.add('active');
+        } else if (gameType === 'emoji-race') {
+            emojiraceSection.classList.remove('hidden');
+            emojiraceSection.classList.add('active');
         }
     }
     
@@ -920,17 +1403,21 @@ document.addEventListener('DOMContentLoaded', function() {
         connectionSection.classList.remove('hidden');
         connectionSection.classList.add('active');
         
-        // Hide all game sections
         document.querySelectorAll('.game-section').forEach(section => {
             section.classList.remove('active');
             section.classList.add('hidden');
         });
         
-        // Hide chat section
         chatSection.classList.add('hidden');
-        
-        // Hide modal
         startGameModal.classList.add('hidden');
+    }
+    
+    // Flappy Bird game loop
+    function flappyGameLoop() {
+        if (flappyCtx) {
+            drawFlappyBirdGame();
+        }
+        requestAnimationFrame(flappyGameLoop);
     }
     
     // Reset game state
@@ -938,17 +1425,33 @@ document.addEventListener('DOMContentLoaded', function() {
         currentRoom = null;
         currentGame = null;
         isHost = false;
-        isMyTurnWordchain = false;
-        isMyTurnEmoji = false;
         
+        // Word Chain
+        isMyTurnWordchain = false;
+        wordchainTimeLeft = 30;
+        usedWords.clear();
+        
+        // Emoji Match
+        isMyTurnEmoji = false;
+        emojimatchTimeLeft = 60;
+        currentEmojiPuzzle = null;
+        
+        // Flappy Bird
+        flappyGameRunning = false;
+        flappyScore = 0;
+        flappyPlayers = {};
+        flappyPipes = [];
+        
+        // Emoji Race
+        raceGameRunning = false;
+        racePlayers = {};
+        keyPressCount = 0;
+        
+        // Clear timers
         if (timerInterval) {
             clearInterval(timerInterval);
+            timerInterval = null;
         }
-        
-        wordchainTimeLeft = 30;
-        emojimatchTimeLeft = 60;
-        usedWords.clear();
-        currentEmojiPuzzle = null;
         
         // Reset UI elements
         wordchainRoomElement.textContent = '---';
@@ -972,9 +1475,24 @@ document.addEventListener('DOMContentLoaded', function() {
         submitGuessBtn.disabled = false;
         emojiCategoryElement.textContent = 'Movies';
         
+        flappybirdRoomElement.textContent = '---';
+        flappybirdPlayerCountElement.textContent = '1 player';
+        flappyHighscoreElement.textContent = '0';
+        flappyStatusElement.textContent = 'Waiting...';
+        flappyActivePlayersElement.textContent = '1';
+        
+        emojiraceRoomElement.textContent = '---';
+        emojiracePlayerCountElement.textContent = '1 player';
+        raceStatusElement.textContent = 'Waiting...';
+        trackLengthElement.textContent = '100m';
+        raceSpeedElement.textContent = 'Normal';
+        raceWinnerElement.textContent = 'None';
+        
         // Clear player lists
         wordchainPlayersListElement.innerHTML = '';
         emojimatchPlayersListElement.innerHTML = '';
+        flappybirdPlayersListElement.innerHTML = '';
+        emojiracePlayersListElement.innerHTML = '';
         
         // Clear word chain
         wordChainElement.innerHTML = '<div class="word-chain-start">START →</div>';
@@ -984,6 +1502,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clear guesses
         emojiGuessesElement.innerHTML = '';
+        
+        // Clear race track
+        raceTrackElement.innerHTML = '';
         
         // Clear chat (keep first message)
         const firstMessage = chatMessagesElement.querySelector('.message');
