@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐉LEGACY OF DRAGON-Group Chat Game 🐉 - Word Chain & Emoji Match</title>
+    <title>🐉LEGACY OF DRAGON-Group Chat Game 🐉 - 4 Fun Multiplayer Games</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,8 +11,8 @@
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-gamepad"></i>🐉LEGACY OF DRAGON-Group Chat Game 🐉</h1>
-            <p class="subtitle">Play Word Chain or Emoji Match with friends!</p>
+            <h1><i class="fas fa-gamepad"></i> 🐉LEGACY OF DRAGON-Group Chat Game 🐉</h1>
+            <p class="subtitle">4 Exciting Multiplayer Games to Play with Friends!</p>
         </header>
 
         <main>
@@ -42,6 +42,16 @@
                             <h4>Emoji Match</h4>
                             <p>Match emojis to phrases</p>
                         </div>
+                        <div class="game-option" data-game="flappy-bird">
+                            <i class="fas fa-dove"></i>
+                            <h4>Flappy Bird</h4>
+                            <p>Fly through obstacles</p>
+                        </div>
+                        <div class="game-option" data-game="emoji-race">
+                            <i class="fas fa-flag-checkered"></i>
+                            <h4>Emoji Race</h4>
+                            <p>Race emojis to the finish</p>
+                        </div>
                     </div>
                 </div>
                 
@@ -66,8 +76,8 @@
                         <span>Room: <span id="wordchain-room">---</span></span>
                         <span id="wordchain-player-count">1 player</span>
                         <div class="game-controls">
-                            <button id="switch-to-emoji" class="btn btn-small btn-secondary">
-                                <i class="fas fa-exchange-alt"></i> Switch to Emoji Match
+                            <button id="switch-game-wordchain" class="btn btn-small btn-secondary">
+                                <i class="fas fa-exchange-alt"></i> Switch Game
                             </button>
                             <button id="leave-wordchain" class="btn btn-small btn-danger">
                                 <i class="fas fa-sign-out-alt"></i> Leave
@@ -133,8 +143,8 @@
                         <span>Room: <span id="emojimatch-room">---</span></span>
                         <span id="emojimatch-player-count">1 player</span>
                         <div class="game-controls">
-                            <button id="switch-to-wordchain" class="btn btn-small btn-secondary">
-                                <i class="fas fa-exchange-alt"></i> Switch to Word Chain
+                            <button id="switch-game-emojimatch" class="btn btn-small btn-secondary">
+                                <i class="fas fa-exchange-alt"></i> Switch Game
                             </button>
                             <button id="leave-emojimatch" class="btn btn-small btn-danger">
                                 <i class="fas fa-sign-out-alt"></i> Leave
@@ -210,7 +220,175 @@
                 </div>
             </section>
 
-            <!-- Shared Chat Section (for both games) -->
+            <!-- Flappy Bird Game Section -->
+            <section id="flappybird-section" class="game-section card hidden">
+                <div class="game-header">
+                    <h2><i class="fas fa-dove"></i> Flappy Bird Challenge</h2>
+                    <div class="room-info">
+                        <span>Room: <span id="flappybird-room">---</span></span>
+                        <span id="flappybird-player-count">1 player</span>
+                        <div class="game-controls">
+                            <button id="switch-game-flappybird" class="btn btn-small btn-secondary">
+                                <i class="fas fa-exchange-alt"></i> Switch Game
+                            </button>
+                            <button id="leave-flappybird" class="btn btn-small btn-danger">
+                                <i class="fas fa-sign-out-alt"></i> Leave
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flappy-game-board">
+                    <div class="game-info">
+                        <div class="info-card">
+                            <h4><i class="fas fa-trophy"></i> High Score</h4>
+                            <p id="flappy-highscore">0</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><i class="fas fa-play"></i> Status</h4>
+                            <p id="flappy-status">Waiting...</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><i class="fas fa-users"></i> Players</h4>
+                            <p id="flappy-active-players">1</p>
+                        </div>
+                    </div>
+
+                    <div class="flappy-game-container">
+                        <div class="canvas-container">
+                            <canvas id="flappy-canvas" width="800" height="500"></canvas>
+                        </div>
+                        
+                        <div class="flappy-controls">
+                            <h3>Controls</h3>
+                            <p>Press SPACE, CLICK, or TOUCH to make your bird flap!</p>
+                            <div class="control-buttons">
+                                <button id="flap-btn" class="btn btn-primary">
+                                    <i class="fas fa-angle-double-up"></i> Flap!
+                                </button>
+                                <button id="start-flappy-btn" class="btn btn-success">
+                                    <i class="fas fa-play"></i> Start Game
+                                </button>
+                                <button id="restart-flappy-btn" class="btn btn-warning">
+                                    <i class="fas fa-redo"></i> Restart
+                                </button>
+                            </div>
+                            <div class="flappy-instructions">
+                                <h4><i class="fas fa-info-circle"></i> How to Play:</h4>
+                                <ul>
+                                    <li>Avoid the pipes and don't hit the ground</li>
+                                    <li>Each pipe passed = 1 point</li>
+                                    <li>Last player flying wins!</li>
+                                    <li>Multiplayer: All players control their own bird</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Player List -->
+                    <div class="players-section">
+                        <h3><i class="fas fa-users"></i> Players in Room</h3>
+                        <div id="flappybird-players-list" class="players-list">
+                            <!-- Players will be added here dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Emoji Race Game Section -->
+            <section id="emojirace-section" class="game-section card hidden">
+                <div class="game-header">
+                    <h2><i class="fas fa-flag-checkered"></i> Emoji Race Challenge</h2>
+                    <div class="room-info">
+                        <span>Room: <span id="emojirace-room">---</span></span>
+                        <span id="emojirace-player-count">1 player</span>
+                        <div class="game-controls">
+                            <button id="switch-game-emojirace" class="btn btn-small btn-secondary">
+                                <i class="fas fa-exchange-alt"></i> Switch Game
+                            </button>
+                            <button id="leave-emojirace" class="btn btn-small btn-danger">
+                                <i class="fas fa-sign-out-alt"></i> Leave
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="race-game-board">
+                    <div class="game-info">
+                        <div class="info-card">
+                            <h4><i class="fas fa-flag"></i> Race Status</h4>
+                            <p id="race-status">Waiting...</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><i class="fas fa-road"></i> Track Length</h4>
+                            <p id="track-length">100m</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><i class="fas fa-bolt"></i> Speed</h4>
+                            <p id="race-speed">Normal</p>
+                        </div>
+                        <div class="info-card">
+                            <h4><i class="fas fa-trophy"></i> Winner</h4>
+                            <p id="race-winner">None</p>
+                        </div>
+                    </div>
+
+                    <div class="race-track-container">
+                        <div id="race-track" class="race-track">
+                            <!-- Race track will be drawn here -->
+                        </div>
+                        
+                        <div class="race-controls">
+                            <h3>Controls</h3>
+                            <p>Press your assigned key repeatedly to make your emoji run!</p>
+                            <div class="race-keys">
+                                <div class="player-key" data-player="1">
+                                    <span class="key-label">Player 1:</span>
+                                    <kbd>A</kbd>
+                                </div>
+                                <div class="player-key" data-player="2">
+                                    <span class="key-label">Player 2:</span>
+                                    <kbd>L</kbd>
+                                </div>
+                                <div class="player-key" data-player="3">
+                                    <span class="key-label">Player 3:</span>
+                                    <kbd>F</kbd>
+                                </div>
+                                <div class="player-key" data-player="4">
+                                    <span class="key-label">Player 4:</span>
+                                    <kbd>J</kbd>
+                                </div>
+                            </div>
+                            <div class="control-buttons">
+                                <button id="start-race-btn" class="btn btn-success">
+                                    <i class="fas fa-play"></i> Start Race
+                                </button>
+                                <button id="reset-race-btn" class="btn btn-warning">
+                                    <i class="fas fa-redo"></i> Reset Race
+                                </button>
+                            </div>
+                            <div class="race-instructions">
+                                <h4><i class="fas fa-info-circle"></i> How to Play:</h4>
+                                <ul>
+                                    <li>Each player has a unique key to press</li>
+                                    <li>Press your key repeatedly to make your emoji run faster</li>
+                                    <li>First emoji to reach the finish line wins!</li>
+                                    <li>Race length: 100 meters</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="players-section">
+                        <h3><i class="fas fa-users"></i> Racers</h3>
+                        <div id="emojirace-players-list" class="players-list">
+                            <!-- Players will be added here dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shared Chat Section (for all games) -->
             <section id="chat-section" class="card hidden">
                 <div class="chat-container">
                     <h3><i class="fas fa-comments"></i> Game Chat</h3>
@@ -236,20 +414,28 @@
             <div class="game-instructions">
                 <div class="instruction-card">
                     <h4><i class="fas fa-link"></i> Word Chain</h4>
-                    <p>Each player adds a word that starts with the last letter of the previous word. No repeating words!</p>
+                    <p>Chain words by last letter. No repeats!</p>
                 </div>
                 <div class="instruction-card">
                     <h4><i class="fas fa-smile"></i> Emoji Match</h4>
-                    <p>Guess the phrase represented by emojis. Fastest correct guess wins points!</p>
+                    <p>Guess phrases from emojis. Be quick!</p>
+                </div>
+                <div class="instruction-card">
+                    <h4><i class="fas fa-dove"></i> Flappy Bird</h4>
+                    <p>Avoid pipes, don't hit ground. Last bird flying wins!</p>
+                </div>
+                <div class="instruction-card">
+                    <h4><i class="fas fa-flag-checkered"></i> Emoji Race</h4>
+                    <p>Tap keys to race emojis. Fastest wins!</p>
                 </div>
             </div>
-            <p class="copyright">Group Chat Games,ROGASAN WORK © 2026 | Works on mobile & desktop</p>
+            <p class="copyright">Group Chat Games-Rogasan Wokrplays © 2026 | Works on mobile & desktop</p>
         </footer>
     </div>
 
     <!-- Mobile notification -->
     <div id="mobile-notification" class="mobile-notification hidden">
-        <p>Game optimized for mobile! Rotate your device for the best experience.</p>
+        <p>Game optimized for mobile! For Flappy Bird, tap to flap. For Emoji Race, tap your assigned key.</p>
     </div>
 
     <!-- Game Start Modal -->
@@ -268,5 +454,3 @@
     <script src="client.js"></script>
 </body>
 </html>
-
-
