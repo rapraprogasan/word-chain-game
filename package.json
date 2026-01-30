@@ -1,7 +1,7 @@
 {
   "name": "group-chat-games",
-  "version": "1.0.0",
-  "description": "Multiplayer Group Chat Games: Word Chain & Emoji Match",
+  "version": "2.0.0",
+  "description": "4 Multiplayer Games: Word Chain, Emoji Match, Flappy Bird & Emoji Race",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
