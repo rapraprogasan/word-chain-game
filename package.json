@@ -1,7 +1,7 @@
 {
-  "name": "word-chain-game",
+  "name": "group-chat-games",
   "version": "1.0.0",
-  "description": "Multiplayer Word Chain Game for Group Chat",
+  "description": "Multiplayer Group Chat Games: Word Chain & Emoji Match",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
